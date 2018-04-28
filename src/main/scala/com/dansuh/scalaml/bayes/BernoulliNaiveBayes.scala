@@ -9,7 +9,24 @@ object BernoulliNaiveBayes {
   // here the assumption is that X is binary
   def likelihood(data: Seq[(Int, Seq[Int])]): Map[Int, Seq[Double]] = {
     val classes: Seq[Int] = data.map(_._1).distinct.sorted
-    // TODO:
+    val groupedByClass: Map[Int, Seq[(Int, Seq[Int])]] =
+      data.groupBy(_._1)
+
+    // returns the counts per attributes that are eqiual to xVal
+    def counts(data: Seq[(Int, Seq[Int])], xVal: Int): Seq[Int] = {
+      val numX = data.head._2.length  // number of attributes
+      (0 to numX) map (attrNum => data.count(_._2(attrNum) == xVal))
+    }
+
+    val allCountsX: Seq[Seq[Int]] =
+      classes map (groupedByClass(_)) map (counts(_, 1))
+
+    val classCounts: Seq[Int] = classes.map(groupedByClass(_)).map(_.size)
+    // TODO: replace allCountsX to allProbX,
+    // which is allCountsX that is element-wise divided by counts
+    val condProbs: Seq[Seq[Double]] =
+      allCountsX.zip(classCounts).seq.map(ec => ec._1.map(_.toDouble / ec._2))
+    classes.zip(condProbs).toMap
   }
 
   // calculate the priors P(Y = y)
