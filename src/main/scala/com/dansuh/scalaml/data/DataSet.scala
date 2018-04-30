@@ -6,7 +6,7 @@ trait LabeledData[LabelType, SampleType] extends Product2[LabelType, SampleType]
 }
 
 object LabeledData {
-  def apply[A, B](l: A, s: B) = new LabeledData[A, B](l, s) {
+  def apply[A, B](l: A, s: B): LabeledData[A, B] = new LabeledData[A, B](l, s) {
     override def _1: A = l
     override def _2: B = s
     override def canEqual(that: Any): Boolean = that.isInstanceOf[LabeledData[A, B]]
@@ -19,6 +19,7 @@ trait DataSet[Label, Sample] {
 
   // represents the actual data
   def data: Seq[LabeledData[Label, Sample]]
+
   // represents a sequence of labeled data
   def classes: Seq[Label] = data.map(_.label).distinct
 
@@ -32,12 +33,8 @@ trait DataSet[Label, Sample] {
   }
 }
 
-case class MnistData(_1: Int, _2: Seq[Int]) extends LabeledData[Int, Seq[Int]]
-case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Int]]])
-  extends DataSet[Int, Seq[Int]]
-
 object DataSet {
-  def fromTupleSequence[A, B](rawData: Seq[(A, B)]): DataSet[A, B] = new DataSet[A, B] {
-    def data: Seq[LabeledData[A, B]] = rawData.map(a => LabeledData(a._1, a._2))
-  }
+  def fromTupleSequence[A, B](rawData: Seq[(A, B)]): Seq[LabeledData[A, B]] =
+    rawData.map(a => LabeledData(a._1, a._2))
 }
+

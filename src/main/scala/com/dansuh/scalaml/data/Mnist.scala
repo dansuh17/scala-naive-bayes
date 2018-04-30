@@ -3,6 +3,19 @@ package com.dansuh.scalaml.data
 import java.io.BufferedInputStream
 import java.util.zip.GZIPInputStream
 
+// case classes for MNIST
+case class MnistData(_1: Int, _2: Seq[Float]) extends LabeledData[Int, Seq[Float]]
+case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
+  extends DataSet[Int, Seq[Float]] {
+  def mean(list: Seq[Float]): Float = list.sum / list.size
+  def sampleMeans: Map[Int, Seq[Float]] =
+    groupByClass.mapValues(valList => {
+      val samples: Seq[Seq[Float]] = valList.map(_.sample)
+      samples.transpose.map(lst => lst.sum / lst.size)
+    })
+  def sampleVariances: Map[Int, Seq[Float]] =
+}
+
 object Mnist {
   @inline def byteToUnsignedInt(b: Byte): Int = b.toInt & 0xFF
 
@@ -40,4 +53,8 @@ object Mnist {
   // label stream
   private def readLabels(bytes: Iterator[Int]): Stream[Int] =
     bytes.drop(LabelsOffset).toStream
+
+  // final output
+  val minstDataSet: MnistDataSet =
+    MnistDataSet(DataSet fromTupleSequence labeledTrainIterator.toSeq)
 }
