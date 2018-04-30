@@ -1,6 +1,13 @@
 package com.dansuh.scalaml.bayes
 
 trait BernoulliNaiveBayes {
+  def predictedClass(data: Seq[(Int, Seq[Int])], x: Seq[Int]): Int = {
+    BernoulliNaiveBayes.predict(
+      BernoulliNaiveBayes.likelihood(data),
+      BernoulliNaiveBayes.prior(data),
+      x
+    )
+  }
 }
 
 object BernoulliNaiveBayes {
