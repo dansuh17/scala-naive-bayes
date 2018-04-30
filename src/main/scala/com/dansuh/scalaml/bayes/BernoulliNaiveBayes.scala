@@ -4,10 +4,12 @@ trait BernoulliNaiveBayes {
 }
 
 object BernoulliNaiveBayes {
+  // LabelData type : (y, [x1, x2, ... xn])
+  type LabelData = Seq[(Int, Seq[Int])]
   // we want to calculate P(Y | X) sets
   // Map[Y = y, (P(X1 = true | Y1 = y), P(X2 = true | Y2 = y), ...)]
   // here the assumption is that X is binary
-  def likelihood(data: Seq[(Int, Seq[Int])]): Map[Int, Seq[Double]] = {
+  def likelihood(data: LabelData): Map[Int, Seq[Double]] = {
     val classes: Seq[Int] = data.map(_._1).distinct.sorted
     val groupedByClass: Map[Int, Seq[(Int, Seq[Int])]] =
       data.groupBy(_._1)
@@ -22,15 +24,15 @@ object BernoulliNaiveBayes {
       classes map (groupedByClass(_)) map (counts(_, 1))
 
     val classCounts: Seq[Int] = classes.map(groupedByClass(_)).map(_.size)
-    // TODO: replace allCountsX to allProbX,
-    // which is allCountsX that is element-wise divided by counts
+
     val condProbs: Seq[Seq[Double]] =
       allCountsX.zip(classCounts).seq.map(ec => ec._1.map(_.toDouble / ec._2))
+
     classes.zip(condProbs).toMap
   }
 
   // calculate the priors P(Y = y)
-  def prior(data: Seq[(Int, Seq[Int])]): Vector[(Int, Float)] =
+  def prior(data: LabelData): Vector[(Int, Float)] =
     data.foldLeft(Vector[(Int, Int)]())((acc, datPoint) => {
       // TODO: VERY unnecessary repetitive computation - can it be avoided?
       val exists = acc.forall(_._1 != datPoint._1)
@@ -45,7 +47,18 @@ object BernoulliNaiveBayes {
     }).map(c => (c._1, c._2.toFloat / data.size))  // normalize to probabilities
 
 
-  def predict(probability: Map[Int, Seq[Double]], new_x: Seq[Int]): Int = {
-    // TODO
+  // calculate argmax P(Y = y | X) = argmax P(Y) * P(X | Y)
+  // where P(X | Y) = prod(P(x_i | Y))
+  def predict(likelihood: Map[Int, Seq[Double]],
+              prior: Vector[(Int, Float)],
+              new_x: Seq[Int]): Int = {
+    val classes: Seq[Int] = (prior map {_._1}).distinct.sorted
+    val probs: Seq[Double] = classes.map(likelihood(_).zip(new_x).map(item => {
+      val (prob, xVal) = item
+      if (xVal == 1) prob
+      else 1 - prob
+    })).map(_.foldRight(1d)(_ * _))
+    val argmax: Int = probs.zipWithIndex.maxBy(_._1)._2
+    argmax
   }
 }
