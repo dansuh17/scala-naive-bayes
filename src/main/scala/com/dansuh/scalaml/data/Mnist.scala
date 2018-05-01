@@ -7,13 +7,46 @@ import java.util.zip.GZIPInputStream
 case class MnistData(_1: Int, _2: Seq[Float]) extends LabeledData[Int, Seq[Float]]
 case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
   extends DataSet[Int, Seq[Float]] {
+
+  /**
+    * Find the mean of values.
+    * @param list sequence of values
+    * @return mean value
+    */
   def mean(list: Seq[Float]): Float = list.sum / list.size
+
+  /**
+    * Return a map of sample means.
+    * (Y = y) => (mean(X1), mean(X2), ...)
+    * @return map corresponding to means of each class
+    */
   def sampleMeans: Map[Int, Seq[Float]] =
     groupByClass.mapValues(valList => {
       val samples: Seq[Seq[Float]] = valList.map(_.sample)
-      samples.transpose.map(lst => lst.sum / lst.size)
+      samples.transpose.map(mean).toVector  // TODO: just for showing values
     })
+
+  /**
+    * Return sample variances.
+    * (Y = y) => (variance(X1), variance(X2), ...)
+    * @return map corresponding to variances of each class to each attributes
+    */
   def sampleVariances: Map[Int, Seq[Float]] =
+    groupByClass.map(clsVal => {
+      val (cls, valList) = clsVal
+      val samplesInClass: Seq[Seq[Float]] = valList.map(_.sample)
+
+      // make sequence of (samples, mean)
+      val dataAndMean: Seq[(Seq[Float], Float)] =
+        samplesInClass.transpose.zip(sampleMeans(cls))
+
+      val variance: Seq[Float] = dataAndMean map {case (smps: Seq[Float], avg: Float) =>
+        val diffs = smps map(e => math.pow(math.abs(e - avg), 2))
+        diffs.sum.toFloat
+      }
+
+      cls -> variance
+    })
 }
 
 object Mnist {
@@ -33,7 +66,7 @@ object Mnist {
   private def getFileStream(name: String): Iterator[Int] = {
     val inStream = new BufferedInputStream(new GZIPInputStream(
       // TODO: more understanding
-      this.getClass.getClassLoader.getResourceAsStream(s"mnist/$name.gz")
+      this.getClass.getClassLoader.getResourceAsStream(s"$name.gz")
     ))
     // -1 if EOF
     Iterator.continually(inStream.read()).takeWhile(_ != -1)
@@ -54,7 +87,7 @@ object Mnist {
   private def readLabels(bytes: Iterator[Int]): Stream[Int] =
     bytes.drop(LabelsOffset).toStream
 
-  // final output
+  // this is what we will use
   val minstDataSet: MnistDataSet =
     MnistDataSet(DataSet fromTupleSequence labeledTrainIterator.toSeq)
 }
