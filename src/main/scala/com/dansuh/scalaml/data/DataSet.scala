@@ -25,7 +25,8 @@ trait DataSet[Label, Sample] {
   // represents a sequence of labeled data
   def classes: Seq[Label] = data.map(_.label).distinct
 
-  def groupByClass: Map[Label, DataSeqType] = data.groupBy(_.label)
+  def groupByClass: Map[Label, Seq[Sample]] =
+    data groupBy(_.label) mapValues(_.map(_.sample))
 
   def getLabel(sample: Sample): Option[Label] = {
     val dropped = data.dropWhile(_.sample == sample)

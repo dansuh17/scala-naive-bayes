@@ -15,16 +15,19 @@ case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
     */
   def mean(list: Seq[Float]): Float = list.sum / list.size
 
+  def variance(list: Seq[Float]): Float = {
+    lazy val avg = mean(list)
+    val varnc = list.map(_ - avg).map(math.pow(_, 2)).sum / list.size
+    varnc.toFloat
+  }
+
   /**
     * Return a map of sample means.
     * (Y = y) => (mean(X1), mean(X2), ...)
     * @return map corresponding to means of each class
     */
   def sampleMeans: Map[Int, Seq[Float]] =
-    groupByClass.mapValues(valList => {
-      val samples: Seq[Seq[Float]] = valList.map(_.sample)
-      samples.transpose.map(mean).toVector  // TODO: just for showing values
-    })
+    groupByClass.mapValues(_.transpose.map(mean))  // TODO: just for showing values
 
   /**
     * Return sample variances.
@@ -32,21 +35,10 @@ case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
     * @return map corresponding to variances of each class to each attributes
     */
   def sampleVariances: Map[Int, Seq[Float]] =
-    groupByClass.map(clsVal => {
-      val (cls, valList) = clsVal
-      val samplesInClass: Seq[Seq[Float]] = valList.map(_.sample)
+    groupByClass.mapValues(_.transpose.map(variance))
 
-      // make sequence of (samples, mean)
-      val dataAndMean: Seq[(Seq[Float], Float)] =
-        samplesInClass.transpose.zip(sampleMeans(cls))
-
-      val variance: Seq[Float] = dataAndMean map {case (smps: Seq[Float], avg: Float) =>
-        val diffs = smps map(e => math.pow(math.abs(e - avg), 2))
-        diffs.sum.toFloat
-      }
-
-      cls -> variance
-    })
+  def sampleMeanVariances: Map[Int, Seq[(Float, Float)]] =
+    sampleMeans map { case (cls, mean) => cls -> mean.zip(sampleVariances(cls)) }
 }
 
 object Mnist {
