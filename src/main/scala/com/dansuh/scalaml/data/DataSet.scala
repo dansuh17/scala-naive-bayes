@@ -34,11 +34,9 @@ trait DataSet[Label, Sample] {
     if (dropped.isEmpty) None
     else Some(dropped.head.label)
   }
-
 }
 
 object DataSet {
   def fromTupleSequence[A, B](rawData: Seq[(A, B)]): Seq[LabeledData[A, B]] =
     rawData.map(a => LabeledData(a._1, a._2))
 }
-

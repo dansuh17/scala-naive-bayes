@@ -47,7 +47,7 @@ case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
   lazy val sampleMeanVariances: Map[Int, Seq[(Float, Float)]] =
     // here the values are sequence of Seq[Float], whose length is 784 (for MNIST)
     // transpose of this will make a length 784-sequence, grouping the samples by attributes
-    groupByClass.mapValues(_.transpose.map(meanVariance))
+    groupByClass.mapValues(_.transpose.map(meanVariance).toVector)
 }
 
 object Mnist {
