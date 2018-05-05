@@ -7,7 +7,6 @@ import java.util.zip.GZIPInputStream
 case class MnistData(_1: Int, _2: Seq[Float]) extends LabeledData[Int, Seq[Float]]
 case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
   extends DataSet[Int, Seq[Float]] {
-
   /**
     * Find the mean of values.
     * @param list sequence of values
@@ -15,10 +14,12 @@ case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
     */
   def mean(list: Seq[Float]): Float = list.sum / list.size
 
+  def variance(list: Seq[Float], mean: Float): Float =
+    (list.map(x => math.pow(x - mean, 2)).sum / list.size).toFloat
+
   def variance(list: Seq[Float]): Float = {
-    lazy val avg = mean(list)
-    val varnc = list.map(_ - avg).map(math.pow(_, 2)).sum / list.size
-    varnc.toFloat
+    val avg = mean(list)
+    variance(list, avg)
   }
 
   /**
@@ -26,19 +27,27 @@ case class MnistDataSet(data: Seq[LabeledData[Int, Seq[Float]]])
     * (Y = y) => (mean(X1), mean(X2), ...)
     * @return map corresponding to means of each class
     */
-  def sampleMeans: Map[Int, Seq[Float]] =
-    groupByClass.mapValues(_.transpose.map(mean))  // TODO: just for showing values
+  lazy val sampleMeans: Map[Int, Seq[Float]] =
+    groupByClass.mapValues(_.transpose.map(mean))
 
   /**
     * Return sample variances.
     * (Y = y) => (variance(X1), variance(X2), ...)
     * @return map corresponding to variances of each class to each attributes
     */
-  def sampleVariances: Map[Int, Seq[Float]] =
+  lazy val sampleVariances: Map[Int, Seq[Float]] =
     groupByClass.mapValues(_.transpose.map(variance))
 
-  def sampleMeanVariances: Map[Int, Seq[(Float, Float)]] =
-    sampleMeans map { case (cls, mean) => cls -> mean.zip(sampleVariances(cls)) }
+  // given a list, calculate both the mean and variance
+  def meanVariance(list: Seq[Float]): (Float, Float) = {
+    lazy val avg = mean(list)
+    (avg, variance(list, mean = avg))
+  }
+
+  lazy val sampleMeanVariances: Map[Int, Seq[(Float, Float)]] =
+    // here the values are sequence of Seq[Float], whose length is 784 (for MNIST)
+    // transpose of this will make a length 784-sequence, grouping the samples by attributes
+    groupByClass.mapValues(_.transpose.map(meanVariance))
 }
 
 object Mnist {
@@ -46,14 +55,23 @@ object Mnist {
 
   private lazy val trainImagesFile = getFileStream("train-images-idx3-ubyte")
   private lazy val trainLabelsFile = getFileStream("train-labels-idx1-ubyte")
+  private lazy val testImagesFile = getFileStream("t10k-images-idx3-ubyte")
+  private lazy val testLabelsFile = getFileStream("t10k-labels-idx1-ubyte")
+
   lazy val trainImagesByteArray: Array[Array[Byte]] = readImages(trainImagesFile)
   lazy val trainLabels: Stream[Int] = readLabels(trainLabelsFile)
+  lazy val testImagesByteArray: Array[Array[Byte]] = readImages(testImagesFile)
+  lazy val testLabels: Stream[Int] = readLabels(testLabelsFile)
 
   def trainImages: Iterator[Vector[Float]] =
     trainImagesByteArray.iterator.map(_.toVector.map(byteToUnsignedInt(_).toFloat))
+  def testImages: Iterator[Vector[Float]] =
+    testImagesByteArray.iterator.map(_.toVector.map(byteToUnsignedInt(_).toFloat))
 
   def labeledTrainIterator: Iterator[(Int, Vector[Float])] =
     trainLabels.iterator zip trainImages
+  def labeledTestIterator: Iterator[(Int, Vector[Float])] =
+    testLabels.iterator zip testImages
 
   private def getFileStream(name: String): Iterator[Int] = {
     val inStream = new BufferedInputStream(new GZIPInputStream(
@@ -74,7 +92,6 @@ object Mnist {
     bytes.drop(ImagesOffset)  // magic number + set size
       .map(_.toByte).grouped(ImageSize).map(_.toArray).toArray
   }
-
   // label stream
   private def readLabels(bytes: Iterator[Int]): Stream[Int] =
     bytes.drop(LabelsOffset).toStream
@@ -82,4 +99,6 @@ object Mnist {
   // this is what we will use
   val minstDataSet: MnistDataSet =
     MnistDataSet(DataSet fromTupleSequence labeledTrainIterator.toSeq)
+  val mnistTestDataSet: MnistDataSet =
+    MnistDataSet(DataSet fromTupleSequence labeledTestIterator.toSeq)
 }
